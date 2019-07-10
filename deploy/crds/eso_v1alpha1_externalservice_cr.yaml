@@ -1,0 +1,24 @@
+apiVersion: eso.crowdfox.com/v1alpha1
+kind: ExternalService
+metadata:
+  name: example-externalservice
+  namespace: external-services
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  port: 80
+  ips:
+  - 192.168.22.128
+  hosts:
+  - host: "subdomain.example.com"
+    path: "/"
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /
+      port: 9090
+      scheme: HTTP
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1

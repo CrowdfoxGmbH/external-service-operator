@@ -5,7 +5,7 @@
 
 if ! whoami &>/dev/null; then
   if [ -w /etc/passwd ]; then
-    echo "${USER_NAME:-external-services-operator}:x:$(id -u):$(id -g):${USER_NAME:-external-services-operator} user:${HOME}:/sbin/nologin" >> /etc/passwd
+    echo "${USER_NAME:-external-service-operator}:x:$(id -u):$(id -g):${USER_NAME:-external-service-operator} user:${HOME}:/sbin/nologin" >> /etc/passwd
   fi
 fi
 
