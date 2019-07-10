@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-services-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: external-services-operator
+  template:
+    metadata:
+      labels:
+        name: external-services-operator
+    spec:
+      serviceAccountName: external-services-operator
+      containers:
+        - name: external-services-operator
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
+          command:
+          - external-services-operator
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "external-services-operator"
