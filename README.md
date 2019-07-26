@@ -121,8 +121,3 @@ Therefore the Reconciler ist starting or stopping probeWorker and modifies the E
 1. Go API for Kubernetes: [https://godoc.org/k8s.io/]() where you can find type Intefaces
 1. Kubernetes API in general: [https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11]()
 
-TODO
------------
-
-* Adjust clusterrole/role so the operator has only cluster roles he really needs (no Pods, Deployments, Configmaps...)
-* Check which fields are editable and adjust CRD and Controller
