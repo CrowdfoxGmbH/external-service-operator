@@ -27,6 +27,55 @@ Currently you have to install the Operator manually. Therefore `kubectl` apply:
 
 Then if you like, you can deploy an externalservice like: `deploy/crds/eso\_v1alpha1\_externalservice\_crd.yaml`
 
+ExternalService Resource Description
+------------------------------------
+
+Together with the Operator a new CRD will be deployed. Best way to figure out Options is to look into:
+[./pkg/apis/eso/v1alpha1/externalservice\_types.go]()
+
+A sample CRD can be found in [./deploy/crds/eso\_v1alpha1\_externalservice\_crd.yaml]()
+
+Note, that you can currently use only [HTTPGetActions](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#httpgetaction-v1-core) Probes. ExecAction and TCPSocketAction may follow later.
+
+A very complex example of an External Service could look like:
+
+```YAML
+apiVersion: eso.crowdfox.com/v1alpha1
+kind: ExternalService
+metadata:
+  annotations:
+    # those annotations will be added to the ingress ressource
+    traefik.ingress.kubernetes.io/preserve-host: "true"
+  name: complex-example
+  namespace: external-service
+spec:
+  hosts:
+  - host: static1.mydomain.com
+    path: ""
+  - host: static2.mydomain.com
+    path: ""
+  - host: mydomain.com
+    path: ""
+  - host: www.mydomain.com
+    path: ""
+  ips:
+  - 10.0.100.10
+  - 10.0.100.11
+  port: 80
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      host: www.mydomain.com
+      httpHeaders:
+      - name: X-Forwarded-Proto
+        value: https
+      path: /healthcheck
+      port: 8080
+      scheme: HTTP
+    periodSeconds: 10
+    successThreshold: 2
+    timeoutSeconds: 2
+```
 
 Development
 -----------
