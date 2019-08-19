@@ -14,7 +14,14 @@ You can find more details in the CRD descriptions.
 Installation
 --------------
 
-Currently you have to install the Operator manually. Therefore `kubectl` apply:
+### Helm
+
+The easiest way to install the External Service Operator is via helm:
+https://github.com/CrowdfoxGmbH/cfcharts/tree/master/charts/external-service-operator
+
+### Manually applying RDs
+
+Therefore `kubectl` apply:
 * RBACs (only needed when you have RBAC enabled, which you absolutly should!)
   * deploy/namespace.yaml
   * deploy/clusterrole.yaml
