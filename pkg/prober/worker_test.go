@@ -14,6 +14,8 @@ import (
 	"k8s.io/kubernetes/pkg/probe"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/go-logr/logr"
 	"testing"
 )
@@ -180,6 +182,130 @@ func TestDoProbeEndpointDisappeared(t *testing.T) {
 	fakeLogger.expectErrorLog("Endpoint could not be found", t)
 }
 
+func TestDoProbeWithoutAnyProbeType(t *testing.T) {
+	fakeLogger := testLogger{}
+	log = &fakeLogger
+
+	endpoint := testutils.CreateDefaultEndpoint()
+	client := fake.NewFakeClient(endpoint)
+	probeWithoutHandler := testutils.CreateDefaultTestProbe()
+	probeWithoutHandler.Handler = corev1.Handler{}
+
+	worker := worker{
+		parent: &externalServiceProber{
+			httpprober: newFakeHTTPProber(Error),
+			tcpprober:  newFakeTCPProber(Error),
+		},
+		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
+		client:         client,
+		ip:             "127.0.0.1",
+		probe:          probeWithoutHandler,
+	}
+
+	keepGoing := worker.doProbe()
+
+	// expect worker will stop
+	if keepGoing {
+		t.Errorf("Expected to stop Healthcheck worker when healthcheck has failures")
+	}
+
+	// and log Endpoint could not be found
+	fakeLogger.expectErrorLog("Unknown Probe Type.", t)
+
+}
+
+func TestTcpProbeSuccessfulOfInactiveService(t *testing.T) {
+	fakeLogger := testLogger{}
+	log = &fakeLogger
+
+	endpoint := testutils.CreateDefaultEndpoint()
+	client := fake.NewFakeClient(endpoint)
+	tcpProbe := testutils.CreateDefaultTestProbe()
+	tcpProbe.Handler = corev1.Handler{
+		TCPSocket: &corev1.TCPSocketAction{
+			Port: intstr.FromInt(80),
+			Host: "not used",
+		},
+	}
+	tcpProbe.SuccessThreshold = 1
+
+	worker := worker{
+		parent: &externalServiceProber{
+			httpprober: newFakeHTTPProber(Error),
+			tcpprober:  newFakeTCPProber(Success),
+		},
+		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
+		client:         client,
+		ip:             "10.0.102.14",
+		probe:          tcpProbe,
+	}
+
+	keepGoing := worker.doProbe()
+
+	if !keepGoing {
+		t.Errorf("Error during Healthcheck even though TCP Check was successfull")
+	}
+
+	actualEndpoint := &corev1.Endpoints{}
+	if err := client.Get(context.TODO(), types.NamespacedName{Name: endpoint.Name, Namespace: endpoint.Namespace}, actualEndpoint); err != nil {
+		t.Errorf("Got Error '%v' getting updated Endpoint", err)
+	}
+
+	// 10.0.102.10 should not be active anymore
+	if actualEndpoint.Subsets[0].NotReadyAddresses[0].IP == "10.0.102.14" {
+		t.Errorf("Endpoint is expected to healthy, but still in unhealthy list")
+	}
+
+	if actualEndpoint.Subsets[0].Addresses[2].IP != "10.0.102.14" {
+		t.Errorf("Endpoint is expected to healthy, but not in healthy list")
+	}
+
+}
+
+func TestTcpProbeFailureOfActiveService(t *testing.T) {
+	fakeLogger := testLogger{}
+	log = &fakeLogger
+
+	endpoint := testutils.CreateDefaultEndpoint()
+	client := fake.NewFakeClient(endpoint)
+	tcpProbe := testutils.CreateDefaultTestProbe()
+	tcpProbe.Handler = corev1.Handler{
+		TCPSocket: &corev1.TCPSocketAction{
+			Port: intstr.FromInt(80),
+			Host: "not used",
+		},
+	}
+	tcpProbe.FailureThreshold = 1
+
+	worker := worker{
+		parent: &externalServiceProber{
+			httpprober: newFakeHTTPProber(Error),
+			tcpprober:  newFakeTCPProber(Failure),
+		},
+		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
+		client:         client,
+		ip:             "10.0.102.10",
+		probe:          tcpProbe,
+	}
+
+	keepGoing := worker.doProbe()
+
+	if !keepGoing {
+		t.Errorf("Unexpected error during Healthcheck")
+	}
+
+	actualEndpoint := &corev1.Endpoints{}
+	if err := client.Get(context.TODO(), types.NamespacedName{Name: endpoint.Name, Namespace: endpoint.Namespace}, actualEndpoint); err != nil {
+		t.Errorf("Got Error '%v' getting updated Endpoint", err)
+	}
+
+	// 10.0.102.10 should not be active anymore
+	if actualEndpoint.Subsets[0].Addresses[0].IP == "10.0.102.10" {
+		t.Errorf("Endpoint is expected to be unhealthy, but still there")
+	}
+
+}
+
 func TestDoProbeWithInvalidIp(t *testing.T) {
 	fakeLogger := testLogger{}
 	log = &fakeLogger
@@ -189,7 +315,7 @@ func TestDoProbeWithInvalidIp(t *testing.T) {
 
 	worker := worker{
 		parent: &externalServiceProber{
-			httpprober: newFakeProber(Error),
+			httpprober: newFakeHTTPProber(Error),
 		},
 		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
 		client:         client,
@@ -217,7 +343,7 @@ func TestDoProbeStillHealthy(t *testing.T) {
 
 	worker := worker{
 		parent: &externalServiceProber{
-			httpprober: newFakeProber(Success),
+			httpprober: newFakeHTTPProber(Success),
 		},
 		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
 		client:         client,
@@ -251,7 +377,7 @@ func TestDoProbeFailedOnceAllowedThree(t *testing.T) {
 
 	worker := worker{
 		parent: &externalServiceProber{
-			httpprober: newFakeProber(Failure),
+			httpprober: newFakeHTTPProber(Failure),
 		},
 		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
 		client:         client,
@@ -287,7 +413,7 @@ func TestDoProbeFailedOnceAllowedNone(t *testing.T) {
 
 	worker := worker{
 		parent: &externalServiceProber{
-			httpprober: newFakeProber(Failure),
+			httpprober: newFakeHTTPProber(Failure),
 		},
 		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
 		client:         client,
@@ -322,7 +448,7 @@ func TestDoProbeFailedThreeTimesAllowedTwo(t *testing.T) {
 
 	worker := worker{
 		parent: &externalServiceProber{
-			httpprober: newFakeProber(Failure),
+			httpprober: newFakeHTTPProber(Failure),
 		},
 		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
 		client:         client,
@@ -360,7 +486,7 @@ func TestDoProbeFailed2TimesSuccessfullOnce2TimeFailure(t *testing.T) {
 
 	worker := worker{
 		parent: &externalServiceProber{
-			httpprober: newFakeProber(Failure),
+			httpprober: newFakeHTTPProber(Failure),
 		},
 		namespacedName: types.NamespacedName{Name: "TestService", Namespace: "external-services"},
 		client:         client,
@@ -370,7 +496,7 @@ func TestDoProbeFailed2TimesSuccessfullOnce2TimeFailure(t *testing.T) {
 
 	worker.doProbe()
 	worker.doProbe()
-	worker.parent.httpprober = newFakeProber(Success)
+	worker.parent.httpprober = newFakeHTTPProber(Success)
 	keepGoing := worker.doProbe()
 
 	if !keepGoing {
@@ -472,13 +598,38 @@ type fakeHTTPProber struct {
 	answer fakeHTTPAnswer
 }
 
-func newFakeProber(answer fakeHTTPAnswer) *fakeHTTPProber {
+func newFakeHTTPProber(answer fakeHTTPAnswer) *fakeHTTPProber {
 	return &fakeHTTPProber{
 		answer: answer,
 	}
 }
 
 func (p *fakeHTTPProber) Probe(_ *url.URL, _ http.Header, _ time.Duration) (probe.Result, string, error) {
+	switch p.answer {
+	case Error:
+		return probe.Failure, "Fake error", errors.New("Error")
+	case Failure:
+		return probe.Failure, "Fake error", nil
+	case Success:
+		return probe.Success, "Success", nil
+	case Unknown:
+		return probe.Unknown, "Fake error", errors.New("Error")
+	}
+
+	return probe.Failure, "Not Implemented", errors.New("Fake is broken")
+}
+
+type fakeTCPProber struct {
+	answer fakeHTTPAnswer
+}
+
+func newFakeTCPProber(answer fakeHTTPAnswer) *fakeTCPProber {
+	return &fakeTCPProber{
+		answer: answer,
+	}
+}
+
+func (p *fakeTCPProber) Probe(host string, port int, timeout time.Duration) (probe.Result, string, error) {
 	switch p.answer {
 	case Error:
 		return probe.Failure, "Fake error", errors.New("Error")

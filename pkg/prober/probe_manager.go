@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	httpprober "k8s.io/kubernetes/pkg/probe/http"
+	tcpprober "k8s.io/kubernetes/pkg/probe/tcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -63,6 +64,7 @@ func (p *ProbeManager) AddProbes(externalService *esov1alpha1.ExternalService) {
 		externalService: externalService,
 		workers:         map[string]*worker{},
 		httpprober:      httpprober.New(),
+		tcpprober:       tcpprober.New(),
 	}
 
 	prober.addWorkers(p.client, externalService.Spec.ReadinessProbe)
