@@ -74,9 +74,7 @@ func (w *worker) stop() {
 }
 
 func (w *worker) doProbe() (keepGoing bool) {
-
-	runLogger := log.WithValues("IP", w.ip, "Port", w.probe.HTTPGet.Port, "endpoint", w.namespacedName.Name, "namespace", w.namespacedName.Namespace)
-
+	runLogger := log.WithValues("IP", w.ip, "endpoint", w.namespacedName.Name, "namespace", w.namespacedName.Namespace)
 	runLogger.V(1).Info("Start Check")
 	defer func() { recover() }() // Actually eat panics (HandleCrash takes care of logging)
 	defer runtime.HandleCrash(func(_ interface{}) { keepGoing = true })
@@ -96,7 +94,18 @@ func (w *worker) doProbe() (keepGoing bool) {
 		}
 	}
 
-	result, message, err := w.runHttpProbe()
+	var result probe.Result
+	message := "Unknown Probe Type."
+	err = errors.New("Unexpected Error")
+
+	if w.probe.HTTPGet != nil {
+		result, message, err = w.runHttpProbe()
+	} else if w.probe.TCPSocket != nil {
+		result, message, err = w.runTcpProbe()
+	} else {
+		runLogger.Error(err, message)
+		return false
+	}
 
 	if err != nil {
 		runLogger.Error(err, "Runtimeerror during probe", "message", message)
@@ -148,6 +157,14 @@ func (w *worker) runHttpProbe() (probe.Result, string, error) {
 	timeout := time.Duration(w.probe.TimeoutSeconds) * time.Second
 
 	return w.parent.httpprober.Probe(url, headers, timeout)
+}
+
+func (w *worker) runTcpProbe() (probe.Result, string, error) {
+	host := w.ip
+	port := w.probe.TCPSocket.Port.IntValue()
+	timeout := time.Duration(w.probe.TimeoutSeconds) * time.Second
+
+	return w.parent.tcpprober.Probe(host, port, timeout)
 }
 
 func buildHeader(httpaction *corev1.HTTPGetAction) http.Header {

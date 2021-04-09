@@ -5,6 +5,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/probe/http"
+	"k8s.io/kubernetes/pkg/probe/tcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
@@ -14,6 +15,7 @@ type externalServiceProber struct {
 	externalService *esov1alpha1.ExternalService
 	workers         map[string]*worker
 	httpprober      http.Prober
+	tcpprober       tcp.Prober
 }
 
 func (e *externalServiceProber) removeWorker(w *worker) {

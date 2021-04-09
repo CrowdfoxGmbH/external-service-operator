@@ -42,7 +42,7 @@ Together with the Operator a new CRD will be deployed. Best way to figure out Op
 
 A sample CRD can be found in [./deploy/crds/eso\_v1alpha1\_externalservice\_crd.yaml]()
 
-Note, that you can currently use only [HTTPGetActions](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#httpgetaction-v1-core) Probes. ExecAction and TCPSocketAction may follow later.
+Note, that you can use only [HTTPGetActions](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#httpgetaction-v1-core) and [TCPSocketActions](https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#tcpsocketaction-v1-core) Probes. ExecAction and TCPSocketAction may follow later.
 
 A very complex example of an External Service could look like:
 

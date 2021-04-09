@@ -1,0 +1,17 @@
+apiVersion: eso.crowdfox.com/v1alpha1
+kind: ExternalService
+metadata:
+  name: example-externalservice-tcp
+  namespace: external-services
+spec:
+  port: 80
+  ips:
+  - 192.168.22.128
+  readinessProbe:
+    failureThreshold: 3
+    tcpSocket:
+      port: 9090
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
